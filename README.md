@@ -5,7 +5,7 @@
 配置完成 [LangBot](https://github.com/RockChinQ/LangBot) 主程序后使用管理员账号向机器人发送命令即可安装：
 
 ```
-!plugin get <你的插件发布仓库地址>
+!plugin get https://github.com/sheetung/DailyGoalsTracker
 ```
 或查看详细的[插件安装说明](https://docs.langbot.app/plugin/plugin-intro.html#%E6%8F%92%E4%BB%B6%E7%94%A8%E6%B3%95)
 
@@ -25,4 +25,7 @@
 
 ## 更新历史
 
+v0.2 增加打卡删除功能
+
 v0.1 初始化
+
