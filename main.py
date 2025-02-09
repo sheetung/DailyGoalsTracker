@@ -221,7 +221,8 @@ class MyPlugin(BasePlugin):
                 # 使用上次目标
                 last_checkins = get_checkins(user_id)
                 if not last_checkins:
-                    await ctx.reply(MessageChain([At(user_id), Plain(" 请输入打卡目标且没有历史记录！")]))
+                    await ctx.reply(MessageChain([At(user_id), Plain("\n请输入打卡目标且没有历史记录！\n \
+                                                                            打卡命令有：\n打卡 健身\n打卡记录\n打卡删除 健身\n打卡删除 所有")]))
                     return
                 last_checkin_id = last_checkins[-1][0]
                 goals = get_goals(last_checkin_id)
