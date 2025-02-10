@@ -204,6 +204,7 @@ class MyPlugin(BasePlugin):
     async def initialize(self):
         init_db()
 
+    @handler(PersonMessageReceived)
     @handler(GroupMessageReceived)
     async def group_normal_received(self, ctx: EventContext):
         msg = str(ctx.event.message_chain)
