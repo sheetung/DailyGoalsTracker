@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from pkg.plugin.context import *
 from pkg.plugin.events import *
 from pkg.platform.types import *
+import time
+import asyncio
 
 # 数据库和图片存储路径
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -75,6 +77,40 @@ def get_goals(checkin_id):
     goals = [row[0] for row in c.fetchall()]
     conn.close()
     return goals
+
+# 获取管理员
+def get_admin_qq():
+    """
+    获取表中第一位用户的 QQ 号（管理员）。
+    :return: 管理员的 QQ 号，如果表为空则返回 None。
+    """
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT user_id FROM checkins ORDER BY id ASC LIMIT 1")
+    result = c.fetchone()
+    conn.close()
+    if result:
+        return result[0]  # 返回第一位用户的 QQ 号
+    else:
+        return None  # 如果表为空，则返回 None
+
+# 清空数据库，谨慎操作
+def clear_database():
+    """
+    清空数据库中的所有数据。
+    """
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    # 删除 checkins 表中的所有记录
+    c.execute("DELETE FROM checkins")
+    
+    # 删除 goals 表中的所有记录
+    c.execute("DELETE FROM goals")
+    
+    conn.commit()
+    conn.close()
+
 
 # 查询用户当天是否已经打卡了某个目标
 def has_checked_in_today(user_id, goal):
@@ -194,12 +230,33 @@ def delete_all_checkins(user_id):
 # 插件主体
 @register(name="DailyGoalsTracker", 
           description="打卡系统,实现每日目标打卡，可重复打卡不同目标，并且统计持续打卡时间，月年打卡记录等", 
-          version="0.5", 
+          version="0.6", 
           author="sheetung")
 class MyPlugin(BasePlugin):
 
     def __init__(self, host: APIHost):
-        pass
+        self.adminInit = False # 是否进入打卡管理命令标志
+        self.start_time = 0 # 退出记录时间
+        self.timeout_task = None  # 用于存储异步任务
+
+    async def handle_timeout(self, ctx):
+        """处理超时的异步任务"""
+        try:
+            await asyncio.sleep(5)  # 等待5秒
+            if self.adminInit:  # 如果仍处于管理模式
+                self.adminInit = False
+                self.start_time = 0
+                # 发送超时提示
+                await ctx.send_message(
+                    ctx.event.launcher_type,
+                    str(ctx.event.launcher_id),
+                    MessageChain([Plain(" 操作超时，已退出管理模式。")])
+                )
+        except asyncio.CancelledError:
+            # 任务被取消，正常退出
+            pass
+        finally:
+            self.timeout_task = None
 
     async def initialize(self):
         init_db()
@@ -211,14 +268,15 @@ class MyPlugin(BasePlugin):
         user_id = ctx.event.sender_id
         group_id = ctx.event.launcher_id
 
-        parts = msg.split(maxsplit=1)
+        parts = msg.split(maxsplit=2)
         cmd = parts[0].strip()
-        goals_str = parts[1].strip() if len(parts) > 1 else ""
+        parts1 = parts[1].strip() if len(parts) > 1 else ""
+        parts2 = parts[2].strip() if len(parts) > 2 else ""
 
         if cmd == "打卡":
             clear_old_checkins()
             # 获取目标列表
-            if not goals_str:
+            if not parts1:
                 # 使用上次目标
                 last_checkins = get_checkins(user_id)
                 if not last_checkins:
@@ -228,7 +286,7 @@ class MyPlugin(BasePlugin):
                 last_checkin_id = last_checkins[-1][0]
                 goals = get_goals(last_checkin_id)
             else:
-                goals = [g.strip() for g in goals_str.split(",") if g.strip()]
+                goals = [g.strip() for g in parts1.split(",") if g.strip()]
 
             if not goals:
                 await ctx.reply(MessageChain([At(user_id), Plain(" 打卡目标不能为空！")]))
@@ -263,13 +321,13 @@ class MyPlugin(BasePlugin):
         
         elif cmd == "打卡删除":
 
-            if goals_str == "所有":
+            if parts1 == "所有":
                 # 删除用户所有打卡记录
                 count = delete_all_checkins(user_id)
                 reply = f"已删除所有打卡记录，共{count}次打卡"
             else:
                 # 删除特定目标
-                goal_to_delete = goals_str
+                goal_to_delete = parts1
                 deleted_count = delete_goals(user_id, goal_to_delete)
                 if deleted_count == 0:
                     reply = f"未找到目标【{goal_to_delete}】的打卡记录"
@@ -277,6 +335,7 @@ class MyPlugin(BasePlugin):
                     reply = f"已删除目标【{goal_to_delete}】的{deleted_count}条记录"
             
             await ctx.reply(MessageChain([At(user_id), Plain(f" {reply}")]))
+            return
 
         elif msg.strip() == "打卡记录":
             checkins = get_checkins(user_id)
@@ -312,5 +371,30 @@ class MyPlugin(BasePlugin):
                 report.append(f"【{goal}】累计 {total} 天 | 连续 {consecutive} 天")
 
             await ctx.reply(MessageChain([At(user_id), Plain("\n".join(report))]))
+            return
+        # 删除用户所有打卡记录 管理员操作
+        elif cmd == "打卡管理" and not self.adminInit:
+            if str(user_id) == str(get_admin_qq()):
+                if parts1 == "删除":
+                    self.adminInit = True
+                    # 取消之前的超时任务（如果有）
+                    if self.timeout_task:
+                        self.timeout_task.cancel()
+                    # 创建新的超时检测任务
+                    self.timeout_task = asyncio.create_task(self.handle_timeout(ctx))
+                    await ctx.reply(MessageChain([At(user_id), Plain(f"确认清空？(确认清空)\n倒计时5S")]))
+                else:
+                    await ctx.reply(MessageChain([At(int(get_admin_qq())), Plain(f'正确格式：\n打卡管理 删除')]))
+            else:
+                await ctx.reply(MessageChain([At(int(get_admin_qq())), Plain(f'需管理员{get_admin_qq()}权限')]))
+                return
+        elif cmd == "确认清空" and self.adminInit:
+                    clear_database()
+                    self.adminInit = False #重置
+                    self.start_time = 0
+                    reply = f"已删除所有打卡记录"
+                    await ctx.reply(MessageChain([At(user_id), Plain(f" {reply}")]))
+                    return
+                   
 # 初始化数据库
 init_db()
