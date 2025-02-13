@@ -194,7 +194,7 @@ def delete_all_checkins(user_id):
 # 插件主体
 @register(name="DailyGoalsTracker", 
           description="打卡系统,实现每日目标打卡，可重复打卡不同目标，并且统计持续打卡时间，月年打卡记录等", 
-          version="0.2", 
+          version="0.5", 
           author="sheetung")
 class MyPlugin(BasePlugin):
 
@@ -294,14 +294,23 @@ class MyPlugin(BasePlugin):
                         goals_data[goal] = []
                     goals_data[goal].append(checkin_record[2])  # checkin_time
 
-            # 生成统计信息
-            report = ["打卡统计："]
+            # 生成统计信息（按累计天数>连续天数排序）
+            report = ["打卡统计（按累计天数＞连续天数排序）："]
+            # 收集所有目标数据
+            goals_list = []
             for goal, times in goals_data.items():
                 total = len(times)
                 consecutive = get_consecutive_days(user_id, goal)
-                report.append(f"【{goal}】累计{total}天，连续{consecutive}天")
+                goals_list.append((goal, total, consecutive))
+            
+            # 双重排序：累计降序 > 连续降序
+            sorted_goals = sorted(goals_list, key=lambda x: (-x[1], -x[2]))
+            
+            # 生成排序后的报告
+            for goal_info in sorted_goals:
+                goal, total, consecutive = goal_info
+                report.append(f"【{goal}】累计 {total} 天 | 连续 {consecutive} 天")
 
             await ctx.reply(MessageChain([At(user_id), Plain("\n".join(report))]))
-
 # 初始化数据库
 init_db()
