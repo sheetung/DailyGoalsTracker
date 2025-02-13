@@ -92,7 +92,7 @@ def get_admin_qq():
     if result:
         return result[0]  # 返回第一位用户的 QQ 号
     else:
-        return None  # 如果表为空，则返回 None
+        return '0'  # 如果表为空，则返回 None
 
 # 清空数据库，谨慎操作
 def clear_database():
@@ -374,7 +374,7 @@ class MyPlugin(BasePlugin):
             return
         # 删除用户所有打卡记录 管理员操作
         elif cmd == "打卡管理" and not self.adminInit:
-            if str(user_id) == str(get_admin_qq()):
+            if str(user_id) == get_admin_qq() and get_admin_qq() != '0':
                 if parts1 == "删除":
                     self.adminInit = True
                     # 取消之前的超时任务（如果有）
@@ -385,8 +385,10 @@ class MyPlugin(BasePlugin):
                     await ctx.reply(MessageChain([At(user_id), Plain(f"确认清空？(确认清空)\n倒计时5S")]))
                 else:
                     await ctx.reply(MessageChain([At(int(get_admin_qq())), Plain(f'正确格式：\n打卡管理 删除')]))
+            elif get_admin_qq() == '0':
+                await ctx.reply(MessageChain([At(int(user_id)), Plain(f'未创建打卡管理员')]))
             else:
-                await ctx.reply(MessageChain([At(int(get_admin_qq())), Plain(f'需管理员{get_admin_qq()}权限')]))
+                await ctx.reply(MessageChain([At(int(user_id)), Plain(f'需管理员{get_admin_qq()}权限')]))
                 return
         elif cmd == "确认清空" and self.adminInit:
                     clear_database()
