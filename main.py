@@ -463,6 +463,7 @@ class MyPlugin(BasePlugin):
             reply = f"已删除所有打卡记录"
             await ctx.reply(MessageChain([At(user_id), Plain(f" {reply}")]))
             return
-                   
+    def __del__(self):
+        pass
 # 初始化数据库
 init_db()
