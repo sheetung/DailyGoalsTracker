@@ -1,34 +1,39 @@
 # DailyGoalsTracker
 
-参考仓库
+<p align="center"> <img src="https://img.shields.io/badge/LangBot-Plugin-blue" alt="LangBot Plugin"> <img src="https://img.shields.io/badge/Version-v0.6-green" alt="Version"> </p><p align="center"> <b>LangBot 插件，实现每日目标打卡，可重复打卡不同目标，并统计持续打卡时间、月度和年度打卡记录等。</b> </p>
 
-[langbot_Checkin](https://github.com/GryllsGYS/langbot_Checkin)
+------
 
-## 安装
+## 📚 项目简介
 
-配置完成 [LangBot](https://github.com/RockChinQ/LangBot) 主程序后使用管理员账号向机器人发送命令即可安装：
+`DailyGoalsTracker` 是一个为 [LangBot](https://github.com/RockChinQ/LangBot) 设计的插件，旨在帮助用户通过简单的命令完成每日目标打卡，并记录打卡数据。它支持多目标打卡、打卡记录查询、数据统计等功能。
 
-```
+## 🛠️ 安装方法
+
+在配置完成 [LangBot](https://github.com/RockChinQ/LangBot) 主程序后，使用管理员账号向机器人发送以下命令即可安装：
+
+bash复制
+
+```bash
 !plugin get https://github.com/sheetung/DailyGoalsTracker
 ```
-或查看详细的[插件安装说明](https://docs.langbot.app/plugin/plugin-intro.html#%E6%8F%92%E4%BB%B6%E7%94%A8%E6%B3%95)
 
-## 使用
+或者查看详细的 [插件安装说明](https://docs.langbot.app/plugin/plugin-intro.html#插件用法)。
 
-<!-- 插件开发者自行填写插件使用说明 -->
-### 写在前面
+------
 
-若要与本插件使用相同的触发关键词，需要在bot后台设置触发规则，使用触发词触发ai对话例如：`ai`
+## 📖 使用说明
 
-否则修改`main.py`中关键词判定，例如：将`打卡记录`修改为`/打卡记录`
+### 📝 前置说明
 
----
+- 如果需要与本插件使用相同的触发关键词，需在 Bot 后台设置触发规则，例如使用触发词 `ai` 触发 AI 对话。
+- 如果需要修改关键词，可以编辑 `main.py` 中的关键词判定，例如将 `打卡记录` 修改为 `/打卡记录`。
 
-### 数据库结构
+### 🗄️ 数据库结构
 
-两个表：`checkins` 表存储打卡记录，`goals` 表存储打卡目标，通过外键关联。
+本插件使用两个表：`checkins` 表存储打卡记录，`goals` 表存储打卡目标，通过外键关联。
 
-**表 1：`checkins`**
+#### 表 1：`checkins`
 
 | 字段名         | 数据类型 | 约束条件                  | 说明                 |
 | :------------- | :------- | :------------------------ | :------------------- |
@@ -36,7 +41,7 @@
 | `user_id`      | TEXT     | NOT NULL                  | 用户的 QQ 号         |
 | `checkin_time` | DATETIME | NOT NULL                  | 打卡时间（精确到秒） |
 
-**表 2：`goals`**
+#### 表 2：`goals`
 
 | 字段名       | 数据类型 | 约束条件                  | 说明                 |
 | :----------- | :------- | :------------------------ | :------------------- |
@@ -44,43 +49,70 @@
 | `checkin_id` | INTEGER  | NOT NULL                  | 关联的打卡记录 ID    |
 | `goal`       | TEXT     | NOT NULL                  | 打卡目标             |
 
----
+------
 
+### 🚀 功能命令
 
-触发命令`打卡 健身`
+#### 💪 打卡目标
 
-会记录 `健身` 打卡一次
+- **命令**：`打卡 <目标>`
+- **示例**：`打卡 健身`
+- **功能**：记录指定目标的打卡一次。
 
-触发命令`打卡记录`
+#### 📋 查看打卡记录
 
-统计所有时间段的打卡记录
+- **命令**：`打卡记录`
+- **功能**：统计所有时间段的打卡记录。
 
-触发命令`打卡管理 删除`
-默认第一条打卡记录者为管理员，触发命令后输入`确认清空`清空所有数据库
+#### 🛠️ 打卡管理
 
-tips: 触发命令`打卡`,默认打卡前一次的目标
+- **命令**：`打卡管理 删除`
+- **功能**：默认第一条打卡记录者为管理员，触发命令后输入 `确认清空` 可清空所有数据库。
+- **注意**：此操作不可恢复！
 
-**谨慎操作，不可恢复**另有指令 `打卡删除 健身`、`打卡删除 所有`
+#### 🗑️ 删除指定打卡记录
 
-> [!TIP]
-> 迁移数据只需copy`checkin.db`数据库文件
+- **命令**：`打卡删除 <目标>` 或 `打卡删除 所有`
+- **功能**：删除指定目标的打卡记录或所有打卡记录。
+- **注意**：仅操作当前提问账户的id
 
+#### 🔁 重复打卡
 
-## TODO
+- **命令**：`打卡`
+- **功能**：默认打卡当前提问用户的前一次目标。
 
-- [ ] 增加月/年度排行榜
+### 📂 数据迁移
 
-- [ ] 增加管理员删除指定用户目标
+迁移数据时，只需复制 `checkin.db` 数据库文件即可。
 
-- [x] 增加管理员功能，针对整个数据库做修改
+------
 
-## 更新历史
+## 📝 待办事项（TODO）
 
-v0.6 增加管理员功能
+- [ ] 增加月/年度排行榜功能。
+- [ ] 增加管理员删除指定用户目标的功能。
+- [x] 增加管理员功能，针对整个数据库进行修改。
 
-v0.5 增加打卡记录排序功能
+------
 
-v0.2 增加打卡删除功能
+## 📋 更新历史
 
-v0.1 初始化
+- **v0.6**：增加管理员功能。
+- **v0.5**：增加打卡记录排序功能。
+- **v0.2**：增加打卡删除功能。
+- **v0.1**：初始化版本。
+
+------
+
+## 📚 关于
+
+**DailyGoalsTracker** 是一个基于 [LangBot](https://github.com/RockChinQ/LangBot) 的插件，旨在帮助用户实现每日目标打卡、记录和统计功能。更多详情请参考 [LangBot 文档](https://docs.langbot.app/plugin/plugin-intro.html)。
+
+<p align="center"> <a href="https://github.com/sheetung/DailyGoalsTracker/issues">报告问题</a> | <a href="https://github.com/sheetung/DailyGoalsTracker/pulls">贡献代码</a> </p>
+
+------
+
+### 🌟 如果你喜欢这个项目，请给它一个星标！🌟
+
+------
 
