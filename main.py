@@ -315,6 +315,10 @@ class MyPlugin(BasePlugin):
         parts1 = parts[1].strip() if len(parts) > 1 else ""
         parts2 = parts[2].strip() if len(parts) > 2 else ""
 
+        # 处理 cmd，如果包含 / 则删除 /
+        if '/' in cmd:
+            cmd = cmd.replace('/', '')  # 删除所有 /，只保留文字部分
+
         if cmd == "打卡":
             clear_old_checkins()
             # 获取目标列表
@@ -379,7 +383,7 @@ class MyPlugin(BasePlugin):
             await ctx.reply(MessageChain([At(user_id), Plain(f" {reply}")]))
             return
 
-        elif msg.strip() == "打卡记录":
+        elif cmd == "打卡记录":
             checkins = get_checkins(user_id)
             if not checkins:
                 await ctx.reply(MessageChain([At(user_id), Plain(" 暂无打卡记录！")]))
