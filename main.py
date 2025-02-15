@@ -466,4 +466,3 @@ class MyPlugin(BasePlugin):
     def __del__(self):
         pass
 # 初始化数据库
-init_db()
