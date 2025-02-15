@@ -6,6 +6,7 @@ from pkg.plugin.events import *
 from pkg.platform.types import *
 import time
 import asyncio
+import json
 
 # 数据库和图片存储路径
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -227,10 +228,51 @@ def delete_all_checkins(user_id):
     finally:
         conn.close()
 
+def read_admin_id(user_id):
+    """
+    读取管理员 ID，如果文件或管理员不存在，则创建文件并将当前用户设置为管理员。
+    
+    Args:
+        user_id (int): 当前用户的 ID。
+    
+    Returns:
+        list: 返回一个列表，包含状态和管理员 ID。
+             状态为 "存在" 或 "不存在"，管理员 ID 为整数。
+    """
+    # 获取当前脚本所在的文件夹路径
+    current_directory = os.path.dirname(os.path.abspath(__file__))
+    # 拼接文件路径
+    file_path = os.path.join(current_directory, "admin_data.json")
+    
+    # 检查文件是否存在
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as f:
+                admin_data = json.load(f)  # 读取文件内容
+                if "admin_id" in admin_data:  # 检查是否已存在管理员
+                    return ["存在", admin_data["admin_id"]]  # 返回状态和管理员 ID
+                else:
+                    # 如果文件中没有管理员 ID，则写入当前用户 ID
+                    admin_data["admin_id"] = user_id
+                    with open(file_path, "w") as f:
+                        json.dump(admin_data, f)  # 写入文件
+                    return ["不存在", user_id]
+        except json.JSONDecodeError:
+            # 如果文件内容不是合法的 JSON，则重新创建文件
+            admin_data = {"admin_id": user_id}
+            with open(file_path, "w") as f:
+                json.dump(admin_data, f)
+            return ["不存在", user_id]
+    else:
+        # 如果文件不存在，则创建文件不写入
+        with open(file_path, "w") as f:
+            return ["不存在", user_id]
+
+
 # 插件主体
 @register(name="DailyGoalsTracker", 
           description="打卡系统,实现每日目标打卡，可重复打卡不同目标，并且统计持续打卡时间，月年打卡记录等", 
-          version="0.6", 
+          version="0.7", 
           author="sheetung")
 class MyPlugin(BasePlugin):
 
@@ -242,7 +284,7 @@ class MyPlugin(BasePlugin):
     async def handle_timeout(self, ctx):
         """处理超时的异步任务"""
         try:
-            await asyncio.sleep(5)  # 等待5秒
+            await asyncio.sleep(7)  # 等待5秒
             if self.adminInit:  # 如果仍处于管理模式
                 self.adminInit = False
                 self.start_time = 0
@@ -372,31 +414,51 @@ class MyPlugin(BasePlugin):
 
             await ctx.reply(MessageChain([At(user_id), Plain("\n".join(report))]))
             return
+
+        # 创建管理员
+        elif cmd == "创建打卡管理员":
+            reAdmin_status, reAdmin_id = read_admin_id(user_id)
+    
+            if reAdmin_status == "不存在":
+                # 如果管理员不存在，发送已创建管理员的消息
+                await ctx.reply(MessageChain([At(reAdmin_id), Plain(f"已创建管理员{reAdmin_id}")]))
+            elif reAdmin_status == "存在":
+                # 如果管理员已存在，发送已存在管理员的消息
+                await ctx.reply(MessageChain([At(reAdmin_id), Plain(f"已存在管理员{reAdmin_id}")]))
         # 删除用户所有打卡记录 管理员操作
         elif cmd == "打卡管理" and not self.adminInit:
-            if str(user_id) == get_admin_qq() and get_admin_qq() != '0':
-                if parts1 == "删除":
-                    self.adminInit = True
-                    # 取消之前的超时任务（如果有）
-                    if self.timeout_task:
-                        self.timeout_task.cancel()
-                    # 创建新的超时检测任务
-                    self.timeout_task = asyncio.create_task(self.handle_timeout(ctx))
-                    await ctx.reply(MessageChain([At(user_id), Plain(f"确认清空？(确认清空)\n倒计时5S")]))
-                else:
-                    await ctx.reply(MessageChain([At(int(get_admin_qq())), Plain(f'正确格式：\n打卡管理 删除')]))
-            elif get_admin_qq() == '0':
-                await ctx.reply(MessageChain([At(int(user_id)), Plain(f'未创建打卡管理员')]))
-            else:
-                await ctx.reply(MessageChain([At(int(user_id)), Plain(f'需管理员{get_admin_qq()}权限')]))
-                return
-        elif cmd == "确认清空" and self.adminInit:
-                    clear_database()
-                    self.adminInit = False #重置
-                    self.start_time = 0
-                    reply = f"已删除所有打卡记录"
-                    await ctx.reply(MessageChain([At(user_id), Plain(f" {reply}")]))
+            # 读取管理员状态和 ID
+            reAdmin_status, reAdmin_id = read_admin_id(user_id)
+            
+            if parts1 == "删除":
+                if reAdmin_status == "不存在":
+                    # 如果管理员不存在，提示用户创建管理员
+                    await ctx.reply(MessageChain([At(int(user_id)), Plain(f'未创建打卡管理员\n使用命令<创建打卡管理员>创建')]))
                     return
+                elif reAdmin_status == "存在":
+                    if user_id == reAdmin_id:
+                        # 如果当前用户是管理员，进入管理模式
+                        self.adminInit = True
+                        # 取消之前的超时任务（如果有）
+                        if self.timeout_task:
+                            self.timeout_task.cancel()
+                        # 创建新的超时检测任务
+                        self.timeout_task = asyncio.create_task(self.handle_timeout(ctx))
+                        await ctx.reply(MessageChain([At(user_id), Plain(f"确认清空？(确认清空)\n倒计时7S")]))
+                    else:
+                        # 如果当前用户不是管理员，提示需要管理员权限
+                        await ctx.reply(MessageChain([At(int(user_id)), Plain(f'需管理员 {reAdmin_id} 权限')]))
+                        return
+            else:
+                await ctx.reply(MessageChain([At(int(get_admin_qq())), Plain(f'正确格式：\n打卡管理 删除')]))
+                    
+        elif cmd == "确认清空" and self.adminInit:
+            clear_database()
+            self.adminInit = False #重置
+            self.start_time = 0
+            reply = f"已删除所有打卡记录"
+            await ctx.reply(MessageChain([At(user_id), Plain(f" {reply}")]))
+            return
                    
 # 初始化数据库
 init_db()
