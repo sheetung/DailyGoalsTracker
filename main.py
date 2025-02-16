@@ -272,7 +272,7 @@ def read_admin_id(user_id):
 # 插件主体
 @register(name="DailyGoalsTracker", 
           description="打卡系统,实现每日目标打卡，可重复打卡不同目标，并且统计持续打卡时间，月年打卡记录等", 
-          version="0.7", 
+          version="0.8", 
           author="sheetung")
 class MyPlugin(BasePlugin):
 
