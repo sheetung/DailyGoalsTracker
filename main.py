@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pkg.plugin.context import *
 from pkg.plugin.events import *
 from pkg.platform.types import *
@@ -12,6 +12,9 @@ import json
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'checkin.db')
 IMAGES_DIR = os.path.join(BASE_DIR, 'images')
+
+# 创建UTC+8时区对象
+china_tz = timezone(timedelta(hours=8))
 
 # 初始化数据库
 def init_db():
@@ -40,7 +43,7 @@ def init_db():
 def checkin(user_id, goals):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 不包含毫秒
+    now = datetime.now(china_tz).strftime('%Y-%m-%d %H:%M:%S')  # 不包含毫秒
     c.execute(
         "INSERT INTO checkins (user_id, checkin_time) VALUES (?, ?)",
         (user_id, now)
@@ -117,7 +120,8 @@ def clear_database():
 def has_checked_in_today(user_id, goal):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = datetime.now(china_tz).date()
+    # today = time.strftime('%Y-%m-%d', time.localtime())
     c.execute(
         "SELECT 1 FROM checkins JOIN goals ON checkins.id = goals.checkin_id "
         "WHERE user_id = ? AND DATE(checkin_time) = ? AND goal = ?",
@@ -151,7 +155,8 @@ def get_consecutive_days(user_id, goal=None):
     
     # 处理可能的日期时间格式，提取日期部分
     date_objs = []
-    today = datetime.now().date()
+    today = datetime.now(china_tz).date()
+
     for date_str in dates:
         if ' ' in date_str:
             date_part = date_str.split(' ')[0]
@@ -183,7 +188,7 @@ def get_consecutive_days(user_id, goal=None):
 def clear_old_checkins():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    cutoff_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
+    cutoff_date = (datetime.now(china_tz) - timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
     c.execute("DELETE FROM checkins WHERE checkin_time < ?", (cutoff_date,))
     c.execute("DELETE FROM goals WHERE checkin_id NOT IN (SELECT id FROM checkins)")
     conn.commit()
