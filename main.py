@@ -402,7 +402,7 @@ class MyPlugin(BasePlugin):
                     goals_data[goal].append(checkin_record[2])  # checkin_time
 
             # 生成统计信息（按累计天数>连续天数排序）
-            report = ["打卡统计（按累计天数＞连续天数排序）："]
+            report = ["打卡统计："]
             # 收集所有目标数据
             goals_list = []
             for goal, times in goals_data.items():
