@@ -313,12 +313,37 @@ class MyPlugin(BasePlugin):
     async def group_normal_received(self, ctx: EventContext):
         msg = str(ctx.event.message_chain)
         user_id = ctx.event.sender_id
-        group_id = ctx.event.launcher_id
+        # group_id = ctx.event.launcher_id
 
         parts = msg.split(maxsplit=2)
         cmd = parts[0].strip()
         parts1 = parts[1].strip() if len(parts) > 1 else ""
         parts2 = parts[2].strip() if len(parts) > 2 else ""
+
+        launcher_id = str(ctx.event.launcher_id)
+        launcher_type = str(ctx.event.launcher_type)
+        
+        # 获取黑/白名单
+        mode = self.ap.pipeline_cfg.data['access-control']['mode']
+        sess_list = self.ap.pipeline_cfg.data['access-control'][mode]
+
+        found = False
+        if (launcher_type== 'group' and 'group_*' in sess_list) \
+            or (launcher_type == 'person' and 'person_*' in sess_list):
+            found = True
+        else:
+            for sess in sess_list:
+                if sess == f"{launcher_type}_{launcher_id}":
+                    found = True
+                    break 
+        ctn = False
+        if mode == 'whitelist':
+            ctn = found
+        else:
+            ctn = not found
+        if not ctn:
+            # print(f'您被杀了哦')
+            return
 
         # 处理 cmd，如果包含 / 则删除 /
         if '/' in cmd:
