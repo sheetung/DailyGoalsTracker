@@ -5,18 +5,27 @@ from pkg.plugin.context import *
 from pkg.plugin.events import *
 from pkg.platform.types import *
 from .database import DatabaseManager
+from .generator import Generator
+from pkg.provider import entities as llm_entities
+import json
 
 @register(name="DailyGoalsTracker", 
           description="打卡系统,实现每日目标打卡，可重复打卡不同目标，并且统计持续打卡时间，月年打卡记录等", 
-          version="0.81", 
+          version="1.01", 
           author="sheetung")
-class MyPlugin(BasePlugin):
+class DailyGoalsTrackerPlugin(BasePlugin):
 
     def __init__(self, host: APIHost):
+        self.ap = host.ap
         self.db = DatabaseManager()
         self.adminInit = False
         self.start_time = 0
         self.timeout_task = None
+        
+        self._generator = Generator(self.ap)
+        self.cooldown = 30                  # 请求冷却时间（秒）
+        self.last_request = 0               # 最后请求时间戳
+        self.retry_limit = 3                # 最大重试次数
 
     async def handle_timeout(self, ctx):
         """处理超时的异步任务"""
@@ -79,7 +88,7 @@ class MyPlugin(BasePlugin):
                 last_checkins = self.db.get_checkins(user_id)
                 if not last_checkins:
                     await ctx.reply(MessageChain([At(user_id), Plain("\n请输入打卡目标且没有历史记录！\n \
-                                                                    打卡命令有：\n/打卡 <目标>\n/打卡记录\n/打卡删除 <目标>\n/打卡删除 所有\n\
+                                                                    打卡命令有：\n/打卡 <目标>\n/打卡记录\n/打卡分析\n/打卡删除 <目标>\n/打卡删除 所有\n\
                                                                     /打卡管理\n/创建打卡管理员\n\
                                                                     等，具体阅读readme：https://github.com/sheetung/DailyGoalsTracker")]))
                     return
@@ -197,6 +206,91 @@ class MyPlugin(BasePlugin):
             reply = f"已删除所有打卡记录"
             await ctx.reply(MessageChain([At(user_id), Plain(f" {reply}")]))
             return
+        
+        elif cmd == '打卡分析':
+        #     self.ap.logger.info(f"用户 {user_id} 请求---{msg}---")  # 信息日志
+            # 检查是否有打卡数据
+            goal_data = self.db.get_recent_checkins(user_id)
+            if not goal_data:
+                await ctx.reply("您最近没有打卡记录！")
+                return
+            
+            # 获取近30天打卡记录
+            goal_data = self.db.get_recent_checkins(user_id)
+            
+            if not goal_data:
+                # await ctx.reply(MessageChain([At(user_id), Plain(" 您最近30天没有打卡记录哦！")]))
+                return
+            
+            # 准备分析数据
+            analysis_data = {
+                "user_id": user_id,
+                "goals": []
+            }
+            
+            for goal, times in goal_data.items():
+                analysis_data["goals"].append({
+                    "goal": goal,
+                    "checkin_times": times,
+                    "count": len(times)
+                })
+            
+            # 将数据转换为JSON格式
+            data_json = json.dumps(analysis_data, ensure_ascii=False, indent=2)
+            # self.ap.logger.info(f"用户 {user_id} data_json---{data_json}---")  # 信息日志
+            system_prompt=f"""
+                你可以帮助用户分析打卡记录并提供建议。
+                请根据以下规则进行分析：
+                1. 首先显示"【打卡分析报告】"标题
+                2. 分析不同目标的打卡时间分布规律
+                3. 指出可能存在的问题（如打卡时间不稳定）
+                4. 针对每个目标给出改进建议
+                5. 最后用一句充满元气的话鼓励用户
+                6. 使用emoji增加报告的活泼感
+                7. 用户使用的是聊天工具，无法解析markdown，不要使用markdown格式输出
+                
+                用户数据将以JSON格式提供，包含目标名称和对应的打卡时间列表。
+                
+                示例回复格式：
+                【打卡分析报告】
+                
+                📅 总体情况:
+                - 您共完成了X次打卡
+                - 涉及X个不同目标
+                
+                🔍 详细分析:
+                - [目标1]: (分析内容)
+                - [目标2]: (分析内容)
+                
+                💡 改进建议:
+                - (具体建议)
+
+                打卡寄语:
+                (充满正能量的话语)
+                用户的打卡数据为{data_json}
+                """ 
+             # 调用大模型（带重试机制）
+            answer = await self._retry_chat(cmd, system_prompt)
+            # 格式化输出
+            # response = f"【问题】{cmd}\n【解答】{answer.strip()}"
+            
+            # 发送并阻止默认处理
+            await ctx.reply(MessageChain([At(user_id), Plain(f" {answer}")]))
+            ctx.prevent_default()
+
+    async def _retry_chat(self, question: str, system_prompt: str) -> str:
+        """带重试机制的模型调用"""
+        for attempt in range(self.retry_limit):
+            try:
+                return await self._generator.return_chat(
+                    request=question,
+                    system_prompt=system_prompt
+                )
+            except Exception as e:
+                if attempt == self.retry_limit - 1:
+                    raise
+                logging.warning(f"第{attempt+1}次请求失败，1秒后重试...")
+                await asyncio.sleep(1)
 
     def __del__(self):
         pass

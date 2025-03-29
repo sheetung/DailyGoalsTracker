@@ -4,7 +4,8 @@ from datetime import datetime, timedelta, timezone
 import json
 
 # 数据库和图片存储路径
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = "data/plugins/DailyGoalsTracker"
 DB_PATH = os.path.join(BASE_DIR, 'checkin.db')
 IMAGES_DIR = os.path.join(BASE_DIR, 'images')
 
@@ -234,3 +235,31 @@ class DatabaseManager:
         else:
             with open(file_path, "w") as f:
                 return ["不存在", user_id]
+    def get_recent_checkins(self, user_id, days=30):
+        """获取用户近期的打卡记录（按目标分组）"""
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        cutoff_date = (datetime.now(timezone(timedelta(hours=8))) - timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
+        
+        # 获取打卡记录和目标
+        c.execute('''
+            SELECT c.id, c.checkin_time, g.goal 
+            FROM checkins c
+            JOIN goals g ON c.id = g.checkin_id
+            WHERE c.user_id = ? AND c.checkin_time >= ?
+            ORDER BY g.goal, c.checkin_time
+        ''', (user_id, cutoff_date))
+        
+        records = c.fetchall()
+        conn.close()
+        
+        # 按目标分组
+        goal_data = {}
+        for record in records:
+            checkin_id, checkin_time, goal = record
+            if goal not in goal_data:
+                goal_data[goal] = []
+            goal_data[goal].append(checkin_time)
+        
+        return goal_data
