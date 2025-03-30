@@ -11,7 +11,7 @@ import json
 
 @register(name="DailyGoalsTracker", 
           description="打卡系统,实现每日目标打卡，可重复打卡不同目标，并且统计持续打卡时间，月年打卡记录等", 
-          version="1.01", 
+          version="1.11", 
           author="sheetung")
 class DailyGoalsTrackerPlugin(BasePlugin):
 
@@ -180,24 +180,38 @@ class DailyGoalsTrackerPlugin(BasePlugin):
                 await ctx.reply(MessageChain([At(reAdmin_id), Plain(f"已存在管理员{reAdmin_id}")]))
                 
         elif cmd == "打卡管理" and not self.adminInit:
-            reAdmin_status, reAdmin_id = self.db.read_admin_id(user_id)
+            # reAdmin_status, reAdmin_id = self.db.read_admin_id(user_id)
+            is_admin, reAdmin_id = await self._check_admin_permission(ctx, user_id, "打卡管理")
+            if not is_admin and reAdmin_id:
+                await ctx.reply(MessageChain([At(int(user_id)), Plain(f'需管理员权限')]))
+                return
             
             if parts1 == "删除":
-                if reAdmin_status == "不存在":
-                    await ctx.reply(MessageChain([At(int(user_id)), Plain(f'未创建打卡管理员\n使用命令<创建打卡管理员>创建')]))
-                    return
-                elif reAdmin_status == "存在":
-                    if user_id == reAdmin_id:
-                        self.adminInit = True
-                        if self.timeout_task:
-                            self.timeout_task.cancel()
-                        self.timeout_task = asyncio.create_task(self.handle_timeout(ctx))
-                        await ctx.reply(MessageChain([At(user_id), Plain(f"确认清空？(确认清空)\n倒计时7S")]))
-                    else:
-                        await ctx.reply(MessageChain([At(int(user_id)), Plain(f'需管理员 {reAdmin_id} 权限')]))
-                        return
+                self.adminInit = True
+                if self.timeout_task:
+                    self.timeout_task.cancel()
+                self.timeout_task = asyncio.create_task(self.handle_timeout(ctx))
+                await ctx.reply(MessageChain([At(user_id), Plain(f"确认清空？(确认清空)\n倒计时7S")]))         
+                return
+            elif parts1 == "备份":
+                # 执行备份操作 默认数据路目录data目录下，默认仅保存三份
+                success, result = self.db.backup_database()
+                if success:
+                    backup_size = os.path.getsize(result) / 1024  # 转换为KB
+                    await ctx.reply(MessageChain([
+                        At(user_id),
+                        Plain(f"✅ 备份成功\n路径: {result}\n大小: {backup_size:.1f}KB")
+                    ]))
+                else:
+                    await ctx.reply(MessageChain([
+                        At(user_id),
+                        Plain(f"❌ 备份失败\n原因: {result}")
+                    ]))
             else:
-                await ctx.reply(MessageChain([At(int(user_id)), Plain(f'正确格式：\n打卡管理 删除')]))
+                await ctx.reply(MessageChain([
+                    At(int(user_id)),
+                    Plain('可用命令：\n打卡管理 删除\n打卡管理 备份')
+                ]))
                     
         elif cmd == "确认清空" and self.adminInit:
             self.db.clear_database()
@@ -265,7 +279,7 @@ class DailyGoalsTrackerPlugin(BasePlugin):
                 💡 改进建议:
                 - (具体建议)
 
-                打卡寄语:
+                🚁 打卡寄语:
                 (充满正能量的话语)
                 用户的打卡数据为{data_json}
                 """ 
@@ -276,7 +290,7 @@ class DailyGoalsTrackerPlugin(BasePlugin):
             
             # 发送并阻止默认处理
             await ctx.reply(MessageChain([At(user_id), Plain(f" {answer}")]))
-            ctx.prevent_default()
+            ctx.prevent_default() 
 
     async def _retry_chat(self, question: str, system_prompt: str) -> str:
         """带重试机制的模型调用"""
@@ -291,6 +305,32 @@ class DailyGoalsTrackerPlugin(BasePlugin):
                     raise
                 logging.warning(f"第{attempt+1}次请求失败，1秒后重试...")
                 await asyncio.sleep(1)
+    
+    async def _check_admin_permission(self, ctx, user_id, required_action):
+        """
+        统一管理员权限验证
+        :param ctx: 上下文对象
+        :param user_id: 当前用户ID
+        :param required_action: 需要执行的操作名称（用于提示）
+        :return: (is_admin, admin_id) 元组
+        """
+        reAdmin_status, reAdmin_id = self.db.read_admin_id(user_id)
+        
+        if reAdmin_status == "不存在":
+            await ctx.reply(MessageChain([
+                At(int(user_id)), 
+                Plain(f'未创建打卡管理员\n使用命令"创建打卡管理员"进行授权')
+            ]))
+            return (False, None)
+        
+        if user_id != reAdmin_id:
+            await ctx.reply(MessageChain([
+                At(int(user_id)),
+                Plain(f'需要管理员 [{reAdmin_id}] 权限才能{required_action}')
+            ]))
+            return (False, reAdmin_id)
+        
+        return (True, reAdmin_id)
 
     def __del__(self):
         pass

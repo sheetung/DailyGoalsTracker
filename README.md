@@ -119,8 +119,9 @@ bash复制
 
 ## 📋 更新历史
 
+- **v1.11**：增加数据库备份功能
 - **v1.01**：增加AI分析功能
-- **v0.91**：更改数据库存放路径`data/plugins/Waifu/`
+- **v0.91**：更改数据库存放路径`data/plugins/DailyGoalsTracker/`
 - **v0.85**：增加黑白名单适配
 - **v0.80**：优化插件格式
 - **v0.70**：独立管理员数据，不影响数据库
@@ -134,6 +135,8 @@ bash复制
 ## 📚 关于
 
 **DailyGoalsTracker** 是一个基于 [LangBot](https://github.com/RockChinQ/LangBot) 的插件，旨在帮助用户实现每日目标打卡、记录和统计功能。更多详情请参考 [LangBot 文档](https://docs.langbot.app/plugin/plugin-intro.html)。
+
+感谢ElvisChenML大佬的[Waifu](https://github.com/ElvisChenML/Waifu)插件提供的帮助
 
 <p align="center"> <a href="https://github.com/sheetung/DailyGoalsTracker/issues">报告问题</a> | <a href="https://github.com/sheetung/DailyGoalsTracker/pulls">贡献代码</a> </p>
 

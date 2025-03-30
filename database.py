@@ -235,6 +235,7 @@ class DatabaseManager:
         else:
             with open(file_path, "w") as f:
                 return ["不存在", user_id]
+            
     def get_recent_checkins(self, user_id, days=30):
         """获取用户近期的打卡记录（按目标分组）"""
         conn = sqlite3.connect(DB_PATH)
@@ -263,3 +264,62 @@ class DatabaseManager:
             goal_data[goal].append(checkin_time)
         
         return goal_data
+    
+    def backup_database(self, backup_dir=BASE_DIR, max_backups=3):
+        """备份数据库文件
+        
+        Args:
+            backup_dir (str): 备份存储目录（相对路径）
+            max_backups (int): 最大保留备份数量
+        
+        Returns:
+            tuple: (备份是否成功, 备份文件路径或错误信息)
+        """
+        try:
+            # 确保数据库文件存在
+            if not os.path.exists(DB_PATH):
+                return False, "数据库文件不存在"
+            
+            # 创建备份目录（如果不存在）
+            abs_backup_dir = os.path.join(BASE_DIR, backup_dir)
+            os.makedirs(abs_backup_dir, exist_ok=True)
+            
+            # 生成备份文件名（带时间戳）
+            timestamp = datetime.now(china_tz).strftime("%Y%m%d_%H%M%S")
+            backup_name = f"checkin_backup_{timestamp}.db"
+            backup_path = os.path.join(abs_backup_dir, backup_name)
+            
+            # 执行备份（文件复制）
+            with open(DB_PATH, 'rb') as src, open(backup_path, 'wb') as dst:
+                dst.write(src.read())
+            
+            # 清理旧备份（按时间倒序保留最新的）
+            backups = sorted(
+                [f for f in os.listdir(abs_backup_dir) if f.startswith("checkin_backup")],
+                key=lambda x: os.path.getmtime(os.path.join(abs_backup_dir, x)),
+                reverse=True
+            )
+            
+            for old_backup in backups[max_backups:]:
+                try:
+                    os.remove(os.path.join(abs_backup_dir, old_backup))
+                except Exception as e:
+                    self.log_error(f"删除旧备份失败: {old_backup} - {str(e)}")
+            
+            # 验证备份文件
+            if os.path.exists(backup_path) and os.path.getsize(backup_path) > 0:
+                return True, backup_path
+            return False, "备份文件验证失败"
+        
+        except Exception as e:
+            error_msg = f"数据库备份失败: {str(e)}"
+            self.log_error(error_msg)
+            return False, error_msg
+
+    def log_error(self, message):
+        """记录错误日志"""
+        error_log_path = os.path.join(BASE_DIR, "error.log")
+        timestamp = datetime.now(china_tz).strftime("%Y-%m-%d %H:%M:%S")
+        with open(error_log_path, 'a', encoding='utf-8') as f:
+            f.write(f"[{timestamp}] {message}\n")
+
