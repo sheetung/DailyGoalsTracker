@@ -4,14 +4,14 @@ from datetime import datetime, timezone, timedelta
 from pkg.plugin.context import *
 from pkg.plugin.events import *
 from pkg.platform.types import *
-from .database import DatabaseManager
+from .dbedit import DatabaseManager
 from .generator import Generator
 from pkg.provider import entities as llm_entities
 import json
 
 @register(name="DailyGoalsTracker", 
           description="打卡系统,实现每日目标打卡，可重复打卡不同目标，并且统计持续打卡时间，月年打卡记录等", 
-          version="1.11", 
+          version="1.31", 
           author="sheetung")
 class DailyGoalsTrackerPlugin(BasePlugin):
 
@@ -52,10 +52,11 @@ class DailyGoalsTrackerPlugin(BasePlugin):
     async def group_normal_received(self, ctx: EventContext):
         msg = str(ctx.event.message_chain)
         user_id = ctx.event.sender_id
-        parts = msg.split(maxsplit=2)
+        parts = msg.split(maxsplit=3)
         cmd = parts[0].strip()
         parts1 = parts[1].strip() if len(parts) > 1 else ""
         parts2 = parts[2].strip() if len(parts) > 2 else ""
+        parts3 = parts[3].strip() if len(parts) > 3 else ""
 
         launcher_id = str(ctx.event.launcher_id)
         launcher_type = str(ctx.event.launcher_type)
@@ -291,6 +292,57 @@ class DailyGoalsTrackerPlugin(BasePlugin):
             # 发送并阻止默认处理
             await ctx.reply(MessageChain([At(user_id), Plain(f" {answer}")]))
             ctx.prevent_default() 
+        # 在主函数的消息处理部分添加（在group_normal_received方法中）
+            
+        elif cmd == "打卡补":
+            if not parts1:
+                await ctx.reply(MessageChain([At(user_id), Plain(" 补打卡格式：/打卡补 [用户ID] <目标> <日期> [时间]\n示例：\n/打卡补 健身 2023-10-01\n/打卡补 755855262 跑步 2023-10-01 08:00")]))
+                return
+            try:
+                # 参数解析逻辑
+                target_user_id = user_id  # 默认当前用户
+                goal = ""
+                date_str = ""
+                # 情况1：管理员模式 (parts1是用户ID)
+                if parts1.isdigit() and len(parts1) >= 8:  # QQ号长度判断
+                    # 权限验证
+                    is_admin, admin_id = await self._check_admin_permission(ctx, user_id, "指定用户补打卡")
+                    if not is_admin:
+                        return
+                    target_user_id = parts1
+                    goal = parts2
+                    # 合并日期时间部分（处理 parts3 可能不存在的情况）
+                    date_str = parts3 if parts3 else ""
+                    # if date_str:
+                    #     # 处理带空格的日期格式（如 "2025-03-17 12:00"）
+                    #     date_str = f"{parts2} {parts3}" if len(parts) > 3 else parts3
+                    # else:
+                    #     date_str = parts2
+                # 情况2：普通用户模式
+                else:
+                    goal = parts1
+                    # 合并日期和时间参数
+                    date_str = " ".join([parts2, parts3]).strip() if parts3 else parts2
+                # 空值检查
+                if not goal:
+                    raise ValueError("目标不能为空")
+                if not date_str:
+                    raise ValueError("日期不能为空")
+                # 执行补打卡
+                checkin_id = self.db.supplement_checkin(
+                    user_id=target_user_id,
+                    goal=goal,
+                    checkin_date=date_str
+                )
+                # 构造回复消息
+                reply_msg = f"✅ 补打卡成功！\n"
+                if target_user_id != user_id:
+                    reply_msg += f"用户：{target_user_id}\n"
+                reply_msg += f"目标：{goal}\n时间：{date_str}\n" \
+                            f"当前连续打卡天数：{self.db.get_consecutive_days(target_user_id, goal)}天"
+                await ctx.reply(MessageChain([At(user_id), Plain(f" {reply_msg}")]))
+            except Exception as e:
+                await ctx.reply(MessageChain([At(user_id), Plain(f"❌ 补打卡失败：{str(e)}")]))
 
     async def _retry_chat(self, question: str, system_prompt: str) -> str:
         """带重试机制的模型调用"""

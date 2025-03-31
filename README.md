@@ -1,6 +1,6 @@
 # DailyGoalsTracker
 
-<p align="center"> <img src="https://img.shields.io/badge/LangBot-Plugin-blue" alt="LangBot Plugin"> <img src="https://img.shields.io/badge/Version-v0.6-green" alt="Version"> </p><p align="center"> <b>LangBot 插件，实现每日目标打卡，可重复打卡不同目标，并统计持续打卡时间、月度和年度打卡记录等。</b> </p>
+<p align="center"> <img src="https://img.shields.io/badge/LangBot-Plugin-blue" alt="LangBot Plugin"> <img src="https://img.shields.io/badge/Version-v1.31-green" alt="Version"> </p><p align="center"> <b>LangBot 插件，实现每日目标打卡，可重复打卡不同目标，并统计持续打卡时间、月度和年度打卡记录等。</b> </p>
 
 ------
 
@@ -101,6 +101,12 @@ bash复制
 - **命令**：`打卡分析`
 - **功能**：调用AI分析30天内的打卡记录
 
+### 🍕 补漏打卡
+
+- **命令**：`打卡补 <用户id> <目标> <时间>`
+- **示例**：`打卡补 755855262 健身 2025-03-12`
+- **功能**：补漏打卡
+
 ### 📂 数据迁移
 
 迁移数据时，只需复制 `checkin.db` 数据库文件即可。
@@ -119,6 +125,8 @@ bash复制
 
 ## 📋 更新历史
 
+- **v1.31**：增加补卡功能
+- **v1.21**：**！！！重构数据库**，谨慎按照补充说明操作
 - **v1.11**：增加数据库备份功能
 - **v1.01**：增加AI分析功能
 - **v0.91**：更改数据库存放路径`data/plugins/DailyGoalsTracker/`
@@ -129,6 +137,16 @@ bash复制
 - **v0.50**：增加打卡记录排序功能。
 - **v0.20**：增加打卡删除功能。
 - **v0.10**：初始化版本。
+
+### 补充说明
+
+针对v1.21版本以前的用户升级的数据库操作
+
+使用前请备份数据库，例如改名为`checkin_old.db`
+
+运行`migrate_db.py`更新数据库
+
+！！！如不会操作，进交流群找群主帮忙
 
 ------
 
