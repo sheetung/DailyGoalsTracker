@@ -355,7 +355,7 @@ class DatabaseManager:
                 return False, "数据库文件不存在"
             
             # 创建备份目录（如果不存在）
-            abs_backup_dir = os.path.join(BASE_DIR, backup_dir)
+            abs_backup_dir = os.path.join(BASE_DIR,'backup')
             os.makedirs(abs_backup_dir, exist_ok=True)
             
             # 生成备份文件名（带时间戳）
