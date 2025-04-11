@@ -1,6 +1,6 @@
 # DailyGoalsTracker
 
-<p align="center"> <img src="https://img.shields.io/badge/LangBot-Plugin-blue" alt="LangBot Plugin"> <img src="https://img.shields.io/badge/Version-v2.10-green" alt="Version"> </p><p align="center"> <b>LangBot 插件，实现每日目标打卡，可重复打卡不同目标，并统计持续打卡时间、月度和年度打卡记录等。</b> </p>
+<p align="center"> <img src="https://img.shields.io/badge/LangBot-Plugin-blue" alt="LangBot Plugin"> <img src="https://img.shields.io/badge/Version-v1.31-green" alt="Version"> </p><p align="center"> <b>LangBot 插件，实现每日目标打卡，可重复打卡不同目标，并统计持续打卡时间、月度和年度打卡记录等。</b> </p>
 
 ------
 
@@ -125,8 +125,6 @@ bash复制
 
 ## 📋 更新历史
 
-- **v2.10**：优化AI分析逻辑，增加每日限制
-- **v2.00**：重构主函数逻辑
 - **v1.31**：增加补卡功能
 - **v1.21**：**！！！重构数据库**，谨慎按照补充说明操作
 - **v1.11**：增加数据库备份功能

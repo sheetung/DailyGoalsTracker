@@ -267,6 +267,9 @@ class DatabaseManager:
         finally:
             conn.close()
 
+    # 以下方法保持不变...
+    # [保持原有 delete_all_checkins, read_admin_id, 
+    #  get_recent_checkins, backup_database 等方法实现]
     def delete_all_checkins(self, user_id):
         """删除用户所有打卡记录"""
         conn = sqlite3.connect(DB_PATH)
