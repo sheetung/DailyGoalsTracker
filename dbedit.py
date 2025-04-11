@@ -321,7 +321,7 @@ class DatabaseManager:
         c.execute('''
             SELECT c.id, c.checkin_time, g.goal 
             FROM checkins c
-            JOIN goals g ON c.id = g.checkin_id
+            JOIN goals g ON c.goal_id = g.id
             WHERE c.user_id = ? AND c.checkin_time >= ?
             ORDER BY g.goal, c.checkin_time
         ''', (user_id, cutoff_date))
@@ -355,7 +355,7 @@ class DatabaseManager:
                 return False, "数据库文件不存在"
             
             # 创建备份目录（如果不存在）
-            abs_backup_dir = os.path.join(BASE_DIR,'backup')
+            abs_backup_dir = os.path.join(backup_dir,'backup')
             os.makedirs(abs_backup_dir, exist_ok=True)
             
             # 生成备份文件名（带时间戳）

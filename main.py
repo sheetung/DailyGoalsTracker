@@ -52,11 +52,12 @@ class DailyGoalsTrackerPlugin(BasePlugin):
     async def group_normal_received(self, ctx: EventContext):
         msg = str(ctx.event.message_chain)
         user_id = ctx.event.sender_id
-        parts = msg.split(maxsplit=3)
-        cmd = parts[0].strip()
-        parts1 = parts[1].strip() if len(parts) > 1 else ""
-        parts2 = parts[2].strip() if len(parts) > 2 else ""
-        parts3 = parts[3].strip() if len(parts) > 3 else ""
+        msg_parts = msg.split()
+        cmd = msg_parts[0].strip().lstrip('/') if msg_parts else ''
+        args = msg_parts[1:] if len(msg_parts) > 1 else []
+        parts1 = args[0] if len(args) >= 1 else ''
+        parts2 = args[1] if len(args) >= 2 else ''
+        parts3 = ' '.join(args[2:]) if len(args) >= 3 else ''  # 处理剩余参数
 
         launcher_id = str(ctx.event.launcher_id)
         launcher_type = str(ctx.event.launcher_type)
@@ -223,7 +224,7 @@ class DailyGoalsTrackerPlugin(BasePlugin):
             return
         
         elif cmd == '打卡分析':
-        #     self.ap.logger.info(f"用户 {user_id} 请求---{msg}---")  # 信息日志
+            # self.ap.logger.info(f"用户 {user_id} 请求---{msg}---")  # 信息日志
             # 检查是否有打卡数据
             goal_data = self.db.get_recent_checkins(user_id)
             if not goal_data:
