@@ -130,4 +130,4 @@ dmypy.json
 # db
 *.db
 *.db.d
-admin_data.json
+*.json
