@@ -55,8 +55,7 @@ class CheckInHandler(CommandHandler):
             
             reply = (
                 f"⏰ 自动使用上次目标\n"
-                f"{details}\n"
-                f"提示：直接输入 /打卡 可快速重复上次目标"
+                f"{details}"
             )
         else:
             # 所有目标已打卡时显示完整信息
@@ -232,6 +231,7 @@ class AnalysisHandler(CommandHandler):
             prompt = self._build_prompt(analysis_data)
             
             # 调用大模型
+            await ctx.reply([At(user_id), Plain("分析报告正在生成中...")])
             analysis = await self.plugin._retry_chat(
                 question="生成打卡分析报告",
                 system_prompt=prompt
@@ -431,6 +431,24 @@ class AdminCommandHandler(CommandHandler):
         )
         await ctx.reply([At(user_id), Plain(help_msg)])
 
+class HelpCommandHandler(CommandHandler):
+    def __init__(self, plugin):
+        super().__init__(plugin)
+
+    async def handle(self, ctx: EventContext, user_id: str, args: list):
+        help_msg = (
+                "📝 打卡系统使用指南\n"
+                "-----------------\n"
+                "1. 日常打卡：/打卡 <目标>\n"
+                "2. 记录查询：/打卡记录\n"
+                "3. 数据分析：/打卡分析\n"
+                "4. 记录删除：/打卡删除 <目标|所有>\n"
+                "5. 补打卡：/打卡补 [用户] <目标> <日期>\n"
+                "6. 管理功能：/打卡管理\n"
+                "7. 打卡帮助: /打卡帮助"
+            )
+        await ctx.reply([At(user_id), Plain(help_msg)])
+
 class CheckInManager:
     """打卡系统核心管理类"""
     def __init__(self, plugin: 'DailyGoalsTrackerPlugin'):
@@ -441,7 +459,8 @@ class CheckInManager:
             '打卡记录': RecordHandler(plugin),
             '打卡分析': AnalysisHandler(plugin),
             '打卡补': SupplementHandler(plugin),
-            '打卡管理': AdminCommandHandler(plugin)
+            '打卡管理': AdminCommandHandler(plugin),
+            '打卡帮助': HelpCommandHandler(plugin)
         }
     
     async def process_command(self, ctx: EventContext, cmd: str, user_id: str, args: list):
@@ -449,30 +468,18 @@ class CheckInManager:
         if handler:
             await handler.handle(ctx, user_id, args)
         else:
-            await self._show_main_help(ctx, user_id)
-    async def _show_main_help(self, ctx: EventContext, user_id: str):
-        help_msg = (
-            "📝 打卡系统使用指南\n"
-            "-----------------\n"
-            "1. 日常打卡：/打卡 <目标>\n"
-            "2. 记录查询：/打卡记录\n"
-            "3. 数据分析：/打卡分析\n"
-            "4. 记录删除：/打卡删除 <目标|所有>\n"
-            "5. 补打卡：/打卡补 [用户] <目标> <日期>\n"
-            "6. 管理功能：/打卡管理"
-        )
-        await ctx.reply([At(user_id), Plain(help_msg)])
+            return
 
 @register(name="DailyGoalsTracker", 
          description="打卡系统，支持目标管理、AI分析等功能",
-         version="2.10", 
+         version="2.12", 
          author="sheetung")
 class DailyGoalsTrackerPlugin(BasePlugin):
     def __init__(self, host: APIHost):
         self.ap = host.ap
         self.db = DatabaseManager()
         self.manager = CheckInManager(self)
-        self.admin_mode = AdminModeManager(self)
+        # self.admin_mode = AdminModeManager(self)
         self._generator = Generator(self.ap)
         
         # 初始化配置
@@ -542,7 +549,7 @@ class DailyGoalsTrackerPlugin(BasePlugin):
         )
     def _should_process(self, ctx: EventContext) -> bool:
         """判断是否处理该消息"""
-        # 获取黑/白名单
+        # 处理黑/白名单
         launcher_id = str(ctx.event.launcher_id)
         launcher_type = str(ctx.event.launcher_type)
 
@@ -566,46 +573,52 @@ class DailyGoalsTrackerPlugin(BasePlugin):
         if not ctn:
             # print(f'您被杀了哦')
             return False
+        # 处理非打卡消息
+        cmd_daka = str(ctx.event.message_chain).strip().lstrip('/').startswith("打卡")
+        # self.ap.logger.info(f"if:{cmd_daka}")  # 信息日志
+        if not cmd_daka:
+            return False
         return True
     
-class AdminModeManager:
-    """管理员模式管理"""
-    def __init__(self, plugin: 'DailyGoalsTrackerPlugin'):
-        self.plugin = plugin
-        self.active = False
-        self.timeout_task: Optional[asyncio.Task] = None
-    async def enter_admin_mode(self, ctx: EventContext, user_id: str):
-        """进入管理模式"""
-        if self.active:
-            await ctx.reply([At(user_id), Plain(" 已处于管理模式")])
-            return
+# class AdminModeManager:
+#     """管理员模式管理"""
+#     def __init__(self, plugin: 'DailyGoalsTrackerPlugin'):
+#         self.plugin = plugin
+#         self.active = False
+#         self.timeout_task: Optional[asyncio.Task] = None
+#     async def enter_admin_mode(self, ctx: EventContext, user_id: str):
+#         """进入管理模式"""
+#         if self.active:
+#             await ctx.reply([At(user_id), Plain(" 已处于管理模式")])
+#             return
         
-        self.active = True
-        await ctx.reply([At(user_id), Plain(" 进入管理模式，7秒无操作自动退出")])
-        self._start_timeout(ctx)
-    async def handle_admin_command(self, ctx: EventContext, user_id: str, action: str):
-        """处理管理命令"""
-        if action == "删除":
-            self.db.clear_database()
-            await ctx.reply([At(user_id), Plain(" 已清空所有数据")])
-        elif action == "备份":
-            success, path = self.db.backup_database()
-            if success:
-                await ctx.reply([At(user_id), Plain(f" 备份成功：{path}")])
-            else:
-                await ctx.reply([At(user_id), Plain(f" 备份失败：{path}")])
-        self.exit_admin_mode()
-    def exit_admin_mode(self):
-        """退出管理模式"""
-        self.active = False
-        if self.timeout_task:
-            self.timeout_task.cancel()
-        self.timeout_task = None
-    def _start_timeout(self, ctx: EventContext):
-        """启动超时计时"""
-        async def timeout_task():
-            await asyncio.sleep(7)
-            self.exit_admin_mode()
-            await ctx.reply([At(ctx.event.sender_id), Plain(" 管理模式已超时退出")])
+#         self.active = True
+#         await ctx.reply([At(user_id), Plain(" 进入管理模式，7秒无操作自动退出")])
+#         self._start_timeout(ctx)
+#     async def handle_admin_command(self, ctx: EventContext, user_id: str, action: str):
+#         """处理管理命令"""
+#         if action == "删除":
+#             self.db.clear_database()
+#             await ctx.reply([At(user_id), Plain(" 已清空所有数据")])
+#         elif action == "备份":
+#             success, path = self.db.backup_database()
+#             if success:
+#                 await ctx.reply([At(user_id), Plain(f" 备份成功：{path}")])
+#             else:
+#                 await ctx.reply([At(user_id), Plain(f" 备份失败：{path}")])
+#         self.exit_admin_mode()
+#     def exit_admin_mode(self):
+#         """退出管理模式"""
+#         self.active = False
+#         if self.timeout_task:
+#             self.timeout_task.cancel()
+#         self.timeout_task = None
+#     def _start_timeout(self, ctx: EventContext):
+#         """启动超时计时"""
+#         async def timeout_task():
+#             await asyncio.sleep(7)
+#             self.exit_admin_mode()
+#             await ctx.reply([At(ctx.event.sender_id), Plain(" 管理模式已超时退出")])
         
-        self.timeout_task = asyncio.create_task(timeout_task())
+#         self.timeout_task = asyncio.create_task(timeout_task())
+    
