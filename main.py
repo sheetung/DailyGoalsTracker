@@ -62,7 +62,7 @@ class CheckInHandler(CommandHandler):
             current_status = "\n".join(goal_status)
             reply = (
                 f"🎉 今日打卡完成！\n"
-                f"{current_status}\n"
+                f"{current_status}"
             )
         
         await ctx.reply([At(user_id), Plain(reply)])
@@ -202,7 +202,7 @@ class RecordHandler(CommandHandler):
                 f"🏷️ 目标：{goal}\n"
                 f"✅ 累计天数：{total}天\n"
                 f"📆 最后打卡：{last_date[:10]}\n"
-                f"⏳ 当前连续：{consecutive}天\n"
+                f"⏳ 当前连续：{consecutive}天"
             )
         return "\n".join(report)
 class AnalysisHandler(CommandHandler):
