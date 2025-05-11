@@ -9,7 +9,9 @@ from pkg.plugin.context import APIHost, BasePlugin, register
 from .dbedit import DatabaseManager
 from .generator import Generator
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+china_tz = timezone(timedelta(hours=8))
 
 class CommandHandler:
     """命令处理基类"""
@@ -196,12 +198,12 @@ class RecordHandler(CommandHandler):
             ))
         return sorted(stats, key=lambda x: (-x[1], -x[2]))
     def _format_report(self, stats: list) -> str:
-        report = ["📊 打卡统计报告", "----------------"]
+        report = ["📊 打卡记录报告", "----------------"]
         for goal, total, consecutive, last_date in stats:
             report.append(
                 f"🏷️ 目标：{goal}\n"
                 f"✅ 累计天数：{total}天\n"
-                f"📆 最后打卡：{last_date[:10]}\n"
+                f"📆 最后打卡：{last_date[:16]}\n"
                 f"⏳ 当前连续：{consecutive}天"
             )
         return "\n".join(report)
@@ -259,7 +261,8 @@ class AnalysisHandler(CommandHandler):
                 return None
             # 检查时间有效性
             report_time = datetime.fromisoformat(user_report["time"])
-            if (datetime.now() - report_time) < timedelta(hours=24):
+            current_time = datetime.now(china_tz)
+            if (current_time - report_time) < timedelta(hours=24):
                 return user_report
             return None
     async def _save_report(self, user_id: str, content: str):
@@ -276,7 +279,7 @@ class AnalysisHandler(CommandHandler):
                 reports = {}
             # 更新记录
             reports[user_id] = {
-                "time": datetime.now().isoformat(),
+                "time": datetime.now(china_tz).isoformat(),
                 "content": content
             }
             # 写入文件
@@ -472,7 +475,7 @@ class CheckInManager:
 
 @register(name="DailyGoalsTracker", 
          description="打卡系统，支持目标管理、AI分析等功能",
-         version="2.12", 
+         version="2.14", 
          author="sheetung")
 class DailyGoalsTrackerPlugin(BasePlugin):
     def __init__(self, host: APIHost):
