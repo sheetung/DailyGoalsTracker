@@ -556,8 +556,8 @@ class DailyGoalsTrackerPlugin(BasePlugin):
         launcher_id = str(ctx.event.launcher_id)
         launcher_type = str(ctx.event.launcher_type)
 
-        mode = self.ap.pipeline_cfg.data['access-control']['mode']
-        sess_list = self.ap.pipeline_cfg.data['access-control'][mode]
+        mode = ctx.event.query.pipeline_config['trigger']['access-control']['mode']
+        sess_list = ctx.event.query.pipeline_config['trigger']['access-control'][mode]
 
         found = False
         if (launcher_type== 'group' and 'group_*' in sess_list) \
@@ -574,7 +574,7 @@ class DailyGoalsTrackerPlugin(BasePlugin):
         else:
             ctn = not found
         if not ctn:
-            # print(f'您被杀了哦')
+            self.ap.logger.info(f'根据访问控制，插件[DailyGoalsTracker]忽略消息\n')
             return False
         # 处理非打卡消息
         cmd_daka = str(ctx.event.message_chain).strip().lstrip('/').startswith("打卡")
